@@ -110,16 +110,11 @@ def get_data():
     vocab_german.write('german')
     vocab_english.write('english')
 
-    # german = add_unknown(german)
-    # english = add_unknown(english)
-
-    train_data = map_data_to_ids(list(zip(german, english)), vocab_german, vocab_english)
+    train_data = map_data_to_ids(train_data, vocab_german, vocab_english)
     test_data = map_data_to_ids(read_file(TEST_PATH), vocab_german, vocab_english)
     valid_data = map_data_to_ids(read_file(VALID_PATH), vocab_german, vocab_english)
 
-    # print(np.histogram(list(map(lambda a: len(a), german))))
-
-    return train_data, test_data, valid_data, vocab_german, vocab_english
+    return train_data, test_data, valid_data
 
 def get_batch(batch):
     batch_size = len(batch)
@@ -203,7 +198,7 @@ def create_model(session):
 
     return model
 
-def train(train_data, valid_data, vobab_german, vobab_english):
+def train(train_data, valid_data):
     with tf.Session() as session:
         model = create_model(session)
 
@@ -283,11 +278,8 @@ def decode():
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        train_data, test_data, valid_data, vobab_german, vobab_english = get_data()
+        train_data, test_data, valid_data = get_data()
 
-        print('vobab_german size: %d' % vobab_german.size())
-        print('vobab_english size: %d' % vobab_english.size())
-
-        train(train_data, valid_data, vobab_german, vobab_english)
+        train(train_data, valid_data)
     else:
         decode()
