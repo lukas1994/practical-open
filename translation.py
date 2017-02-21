@@ -127,10 +127,8 @@ def get_batch(batch):
     decoder_size = MAX_SENTENCE_LENGTH # max([len(x[1]) for x in batch])
     encoder_inputs, decoder_inputs = [], []
 
-    for x in batch:
-        encoder_input = x[0]
+    for encode_input, decoder_input in batch:
         if len(encoder_input) > MAX_SENTENCE_LENGTH: encoder_input = encoder_input[:MAX_SENTENCE_LENGTH]
-        decoder_input = x[1]
         if len(decoder_input) > MAX_SENTENCE_LENGTH-1: decoder_input = decoder_input[:MAX_SENTENCE_LENGTH-1]
 
         # Encoder inputs are padded and then reversed.
