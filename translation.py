@@ -66,17 +66,20 @@ class Vocab(object):
 
     @staticmethod
     def load(name):
-        with open(__path(name)) as f:
+        with open(Vocab.__path(name)) as f:
             return Vocab(f.read().splitlines())
 
     def get_id(self, word):
         return self.id_map.get(word, UNK_ID)
 
+    def get_word(self, i):
+        return self.vocab[i]
+
     def size(self):
         return len(self.vocab)
 
     def write(self, name):
-        with open(__path(name), 'w') as f:
+        with open(Vocab.__path(name), 'w') as f:
             f.write('\n'.join(self.vocab))
 
 def add_unknown(data):
@@ -119,6 +122,7 @@ def get_data():
     return train_data, test_data, valid_data, vocab_german, vocab_english
 
 def get_batch(batch):
+    batch_size = len(batch)
     encoder_size = MAX_SENTENCE_LENGTH # max([len(x[0]) for x in batch])
     decoder_size = MAX_SENTENCE_LENGTH # max([len(x[1]) for x in batch])
     encoder_inputs, decoder_inputs = [], []
@@ -179,8 +183,8 @@ def get_multiple_batches(data, n, batch_size):
 
 def create_model(session):
     model = seq2seq_model.Seq2SeqModel(
-        vobab_german.size(),
-        vobab_english.size(),
+        MAX_VOCAB_SIZE, # german
+        MAX_VOCAB_SIZE, # english
         [(MAX_SENTENCE_LENGTH, MAX_SENTENCE_LENGTH)], # max input sizes
         LAYER_SIZE,
         NUM_LAYERS,
@@ -247,7 +251,7 @@ def train(train_data, valid_data, vobab_german, vobab_english):
 def decode():
     with tf.Session() as sess:
         # Create model and load parameters.
-        model = create_model(sess, True)
+        model = create_model(sess)
         model.batch_size = 1  # We decode one sentence at a time.
 
         # Load vocabularies.
@@ -267,20 +271,20 @@ def decode():
 
           # Get output logits for the sentence.
           _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                           target_weights, bucket_id, True)
+                                           target_weights, 0, True)
           # This is a greedy decoder - outputs are just argmaxes of output_logits.
           outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
           # If there is an EOS symbol in outputs, cut them at that point.
-          if data_utils.EOS_ID in outputs:
-            outputs = outputs[:outputs.index(data_utils.EOS_ID)]
+          if EOS_ID in outputs:
+            outputs = outputs[:outputs.index(EOS_ID)]
           # Print out French sentence corresponding to outputs.
-          print(" ".join([tf.compat.as_str(rev_fr_vocab[output]) for output in outputs]))
+          print(" ".join([tf.compat.as_str(vocab_english.get_word(output)) for output in outputs]))
           print("> ", end="")
           sys.stdout.flush()
           sentence = sys.stdin.readline()
 
 if __name__ == '__main__':
-    if sys.argv == 1:
+    if len(sys.argv) == 1:
         train_data, test_data, valid_data, vobab_german, vobab_english = get_data()
 
         print('vobab_german size: %d' % vobab_german.size())
