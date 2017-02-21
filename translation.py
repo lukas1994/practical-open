@@ -103,6 +103,7 @@ def map_data_to_ids(data, vocab_german, vocab_english):
 
 def get_data():
     train_data = read_file(TRAIN_PATH)
+
     [german, english] = [list(t) for t in zip(*train_data)]
     vocab_german = Vocab(itertools.chain.from_iterable(german))
     vocab_english = Vocab(itertools.chain.from_iterable(english))
@@ -118,11 +119,11 @@ def get_data():
 
 def get_batch(batch):
     batch_size = len(batch)
-    encoder_size = MAX_SENTENCE_LENGTH # max([len(x[0]) for x in batch])
-    decoder_size = MAX_SENTENCE_LENGTH # max([len(x[1]) for x in batch])
+    encoder_size = max([len(x[0]) for x in batch]) # MAX_SENTENCE_LENGTH
+    decoder_size = max([len(x[1]) for x in batch]) # MAX_SENTENCE_LENGTH
     encoder_inputs, decoder_inputs = [], []
 
-    for encode_input, decoder_input in batch:
+    for encoder_input, decoder_input in batch:
         if len(encoder_input) > MAX_SENTENCE_LENGTH: encoder_input = encoder_input[:MAX_SENTENCE_LENGTH]
         if len(decoder_input) > MAX_SENTENCE_LENGTH-1: decoder_input = decoder_input[:MAX_SENTENCE_LENGTH-1]
 
@@ -232,7 +233,7 @@ def train(train_data, valid_data):
                     checkpoint_path = "train/translate.ckpt"
                     model.saver.save(session, checkpoint_path, global_step=model.global_step)
                     step_time, loss = 0.0, 0.0
-                    # Run evals on development set and print their perplexity.
+                    # Run evals on validation set and print their perplexity (one batch).
                     encoder_inputs, decoder_inputs, target_weights = get_multiple_batches(valid_data, 1, BATCH_SIZE)[0]
                     _, eval_loss, _ = model.step(session, encoder_inputs, decoder_inputs,
                                                target_weights, 0, True)
@@ -252,9 +253,11 @@ def decode():
         vocab_english = Vocab.load('english')
 
         # Decode from standard input.
-        sys.stdout.write("> ")
-        sys.stdout.flush()
-        sentence = sys.stdin.readline()
+        def ask():
+            sys.stdout.write("> ")
+            sys.stdout.flush()
+            return sys.stdin.readline()
+        sentence = ask()
         while sentence:
           # Get token-ids for the input sentence.
           token_ids = map_to_ids(sentence, vocab_german)
@@ -270,11 +273,10 @@ def decode():
           # If there is an EOS symbol in outputs, cut them at that point.
           if EOS_ID in outputs:
             outputs = outputs[:outputs.index(EOS_ID)]
-          # Print out French sentence corresponding to outputs.
-          print(" ".join([tf.compat.as_str(vocab_english.get_word(output)) for output in outputs]))
-          print("> ", end="")
-          sys.stdout.flush()
-          sentence = sys.stdin.readline()
+          # Print out result sentence.
+          print(" ".join([vocab_english.get_word(output) for output in outputs]))
+
+          sentence = ask()
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
