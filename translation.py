@@ -39,8 +39,8 @@ STEPS_PER_CHECKPOINT = 1000
 
 def tokenize(line):
     [german, english] = line.split('|||')
-    german = german.split(' ')
-    english = english.split(' ')
+    german = german.strip().split(' ')
+    english = english.strip().split(' ')
     return german, english
 
 def read_file(file):
@@ -49,25 +49,33 @@ def read_file(file):
     return list(map(tokenize, data))
 
 class Vocab(object):
-    def __init__(self, data):
+    def __init__(self, data=None):
+        if not data: return
+
         freq = {}
         for word in data:
             freq[word] = freq.get(word, 0) + 1
         self.vocab = START_VOCAB + sorted(freq, key=freq.get, reverse=True)
 
         self.vocab = self.vocab[:MAX_VOCAB_SIZE]
-        self.id_map = {}
-        for i, word in enumerate(self.vocab):
-            self.id_map[word] = i
+        self.__generate_id_map()
 
     @staticmethod
     def __path(name):
         return 'train/' + name + '.txt'
 
+    def __generate_id_map(self):
+        self.id_map = {}
+        for i, word in enumerate(self.vocab):
+            self.id_map[word] = i
+
     @staticmethod
     def load(name):
+        v = Vocab()
         with open(Vocab.__path(name)) as f:
-            return Vocab(f.read().splitlines())
+            v.vocab = f.read().splitlines()
+        v.__generate_id_map()
+        return v
 
     def get_id(self, word):
         return self.id_map.get(word, UNK_ID)
@@ -119,8 +127,8 @@ def get_data():
 
 def get_batch(batch):
     batch_size = len(batch)
-    encoder_size = max([len(x[0]) for x in batch]) # MAX_SENTENCE_LENGTH
-    decoder_size = max([len(x[1]) for x in batch]) # MAX_SENTENCE_LENGTH
+    encoder_size = MAX_SENTENCE_LENGTH
+    decoder_size = MAX_SENTENCE_LENGTH
     encoder_inputs, decoder_inputs = [], []
 
     for encoder_input, decoder_input in batch:
@@ -175,7 +183,7 @@ def get_multiple_batches(data, n, batch_size):
 
     return batches
 
-def create_model(session):
+def create_model(session, forward_only):
     model = seq2seq_model.Seq2SeqModel(
         MAX_VOCAB_SIZE, # german
         MAX_VOCAB_SIZE, # english
@@ -187,6 +195,7 @@ def create_model(session):
         LEARNING_RATE,
         LEARNING_RATE_DECAY_FACTOR,
         # use_lstm=True,
+        forward_only=forward_only,
     )
 
     ckpt = tf.train.get_checkpoint_state(TRAIN_DIR)
@@ -201,7 +210,7 @@ def create_model(session):
 
 def train(train_data, valid_data):
     with tf.Session() as session:
-        model = create_model(session)
+        model = create_model(session, False)
 
         step_time, loss = 0.0, 0.0
         current_step = 0
@@ -237,15 +246,14 @@ def train(train_data, valid_data):
                     encoder_inputs, decoder_inputs, target_weights = get_multiple_batches(valid_data, 1, BATCH_SIZE)[0]
                     _, eval_loss, _ = model.step(session, encoder_inputs, decoder_inputs,
                                                target_weights, 0, True)
-                    eval_ppx = math.exp(float(eval_loss)) if eval_loss < 300 else float(
-                      "inf")
+                    eval_ppx = math.exp(float(eval_loss)) if eval_loss < 300 else float("inf")
                     print("  eval: perplexity %.2f" % eval_ppx)
                     sys.stdout.flush()
 
 def decode():
     with tf.Session() as sess:
         # Create model and load parameters.
-        model = create_model(sess)
+        model = create_model(sess, True)
         model.batch_size = 1  # We decode one sentence at a time.
 
         # Load vocabularies.
@@ -256,27 +264,32 @@ def decode():
         def ask():
             sys.stdout.write("> ")
             sys.stdout.flush()
-            return sys.stdin.readline()
+            return sys.stdin.readline().splitlines()[0]
+
         sentence = ask()
-        while sentence:
-          # Get token-ids for the input sentence.
-          token_ids = map_to_ids(sentence, vocab_german)
+        while sentence != "":
+            # Get token-ids for the input sentence.
+            token_ids = map_to_ids(sentence.split(" "), vocab_german)
 
-          # Get a 1-element batch to feed the sentence to the model.
-          encoder_inputs, decoder_inputs, target_weights = get_batch([(token_ids, [])])
+            # Get a 1-element batch to feed the sentence to the model.
+            encoder_inputs, decoder_inputs, target_weights = get_batch([(token_ids, [])])
 
-          # Get output logits for the sentence.
-          _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                           target_weights, 0, True)
-          # This is a greedy decoder - outputs are just argmaxes of output_logits.
-          outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
-          # If there is an EOS symbol in outputs, cut them at that point.
-          if EOS_ID in outputs:
-            outputs = outputs[:outputs.index(EOS_ID)]
-          # Print out result sentence.
-          print(" ".join([vocab_english.get_word(output) for output in outputs]))
+            # Get output logits for the sentence.
+            _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+                                             target_weights, 0, True)
 
-          sentence = ask()
+            # This is a greedy decoder - outputs are just argmaxes of output_logits.
+            outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+
+            # If there is an EOS symbol in outputs, cut them at that point.
+            if EOS_ID in outputs:
+                print("EOS found")
+                outputs = outputs[:outputs.index(EOS_ID)]
+
+            # Print out result sentence.
+            print(" ".join([vocab_english.get_word(output) for output in outputs]))
+
+            sentence = ask()
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
