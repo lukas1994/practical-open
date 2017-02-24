@@ -1,4 +1,5 @@
 import sys
+import subprocess
 import random
 import time
 import math
@@ -28,14 +29,14 @@ UNK_ID = 3
 
 # params
 BATCH_SIZE = 64
-LAYER_SIZE = 128 #1024
-NUM_LAYERS = 1
+LAYER_SIZE = 256 #1024
+NUM_LAYERS = 2
 MAX_GRADIENT_NORM = 5.0
 LEARNING_RATE = 0.5
 LEARNING_RATE_DECAY_FACTOR = 0.99
 MAX_SENTENCE_LENGTH = 40
-MAX_VOCAB_SIZE = 5000
-STEPS_PER_CHECKPOINT = 1000
+MAX_VOCAB_SIZE = 7000
+STEPS_PER_CHECKPOINT = 5000
 
 def tokenize(line):
     [german, english] = line.split('|||')
@@ -133,15 +134,15 @@ def get_batch(batch):
 
     for encoder_input, decoder_input in batch:
         if len(encoder_input) > MAX_SENTENCE_LENGTH: encoder_input = encoder_input[:MAX_SENTENCE_LENGTH]
-        if len(decoder_input) > MAX_SENTENCE_LENGTH-1: decoder_input = decoder_input[:MAX_SENTENCE_LENGTH-1]
+        if len(decoder_input) > MAX_SENTENCE_LENGTH-2: decoder_input = decoder_input[:MAX_SENTENCE_LENGTH-2]
 
         # Encoder inputs are padded and then reversed.
         encoder_pad = [PAD_ID] * (encoder_size - len(encoder_input))
         encoder_inputs.append(list(reversed(encoder_input + encoder_pad)))
 
         # Decoder inputs get an extra "GO" symbol, and are padded then.
-        decoder_pad_size = decoder_size - len(decoder_input) - 1
-        decoder_inputs.append([GO_ID] + decoder_input +
+        decoder_pad_size = decoder_size - len(decoder_input) - 2
+        decoder_inputs.append([GO_ID] + decoder_input + [EOS_ID] +
                               [PAD_ID] * decoder_pad_size)
 
     # Now we create batch-major vectors from the data selected above.
@@ -250,11 +251,40 @@ def train(train_data, valid_data):
                     print("  eval: perplexity %.2f" % eval_ppx)
                     sys.stdout.flush()
 
+def translate(model, sess, vocab_german, vocab_english, sentences):
+    data = []
+    for sentence in sentences:
+        token_ids = map_to_ids(sentence.split(" "), vocab_german)
+        data.append((token_ids, []))
+
+    # Get a 1-element batch to feed the sentence to the model.
+    encoder_inputs, decoder_inputs, target_weights = get_batch(data)
+
+    # Get output logits for the sentence.
+    model.batch_size = len(sentences)
+    _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+                                             target_weights, 0, True)
+
+    # This is a greedy decoder - outputs are just argmaxes of output_logits.
+    outputs = [np.argmax(logit, axis=1) for logit in output_logits]
+
+    translations = []
+    for i in range(len(sentences)):
+        ids  = [int(outputs[output][i]) for output in range(len(outputs))]
+
+        # If there is an EOS symbol in outputs, cut them at that point.
+        if EOS_ID in ids:
+            ids = ids[:ids.index(EOS_ID)]
+
+        # Add result sentence.
+        translations.append(" ".join([vocab_english.get_word(word_id) for word_id in ids]))
+
+    return translations
+
 def decode():
     with tf.Session() as sess:
         # Create model and load parameters.
         model = create_model(sess, True)
-        model.batch_size = 1  # We decode one sentence at a time.
 
         # Load vocabularies.
         vocab_german = Vocab.load('german')
@@ -268,33 +298,51 @@ def decode():
 
         sentence = ask()
         while sentence != "":
-            # Get token-ids for the input sentence.
-            token_ids = map_to_ids(sentence.split(" "), vocab_german)
+            translation = translate(model, sess, vocab_german, vocab_english, [sentence, sentence])[0]
 
-            # Get a 1-element batch to feed the sentence to the model.
-            encoder_inputs, decoder_inputs, target_weights = get_batch([(token_ids, [])])
-
-            # Get output logits for the sentence.
-            _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                             target_weights, 0, True)
-
-            # This is a greedy decoder - outputs are just argmaxes of output_logits.
-            outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
-
-            # If there is an EOS symbol in outputs, cut them at that point.
-            if EOS_ID in outputs:
-                print("EOS found")
-                outputs = outputs[:outputs.index(EOS_ID)]
-
-            # Print out result sentence.
-            print(" ".join([vocab_english.get_word(output) for output in outputs]))
+            print(translation)
 
             sentence = ask()
+
+def generate_bleu():
+    NUM = 20
+    with open(TEST_PATH) as f:
+        data = random.sample(f.read().splitlines(), NUM)
+
+    with tf.Session() as sess:
+        model = create_model(sess, True)
+        vocab_german = Vocab.load('german')
+        vocab_english = Vocab.load('english')
+
+        sentences_de = []
+        sentences_en = []
+        for i in range(NUM):
+            data[i] = data[i].split(" ||| ")
+            sentences_de.append(data[i][0])
+            sentences_en.append(data[i][1])
+
+        translations = translate(model, sess, vocab_german, vocab_english, sentences_en)
+
+        ref = open('references', 'w')
+        hyp = open('hypotheses', 'w')
+        
+        for i in range(NUM):
+            ref.write(sentences_en[i] + "\n")
+            hyp.write(translations[i] + "\n")
+
+        ref.close()
+        hyp.close()
+        res = subprocess.getoutput('./multi-bleu.perl references < hypotheses')
+        print(res)
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         train_data, test_data, valid_data = get_data()
 
         train(train_data, valid_data)
-    else:
+    elif sys.argv[1] == 'bleu':
+        generate_bleu()
+    elif sys.argv[1] == 'decode':
         decode()
+    else:
+        sys.exit(1)

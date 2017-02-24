@@ -1,3 +1,5 @@
 iwslt-deen-prepared/
 __pycache__/
-train/
+train*/
+hypotheses
+references
