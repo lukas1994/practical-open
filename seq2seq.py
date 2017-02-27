@@ -752,6 +752,7 @@ def embedding_attention_decoder(decoder_inputs,
 
 def embedding_attention_seq2seq(encoder_inputs,
                                 decoder_inputs,
+                                sequence_length,
                                 cell,
                                 num_encoder_symbols,
                                 num_decoder_symbols,
@@ -817,7 +818,7 @@ def embedding_attention_seq2seq(encoder_inputs,
     #     encoder_cell, encoder_inputs, dtype=dtype)
 
     encoder_outputs, encoder_state, encoder_state_back = rnn.bidirectional_rnn(
-        encoder_cell, encoder_cell, encoder_inputs, sequence_length=None, dtype=dtype)
+        encoder_cell, encoder_cell, encoder_inputs, sequence_length=sequence_length, dtype=dtype)
 
     # First calculate a concatenation of encoder outputs to put attention on.
     output_size = 2 * encoder_cell.output_size

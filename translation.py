@@ -131,10 +131,13 @@ def get_batch(batch):
     encoder_size = MAX_SENTENCE_LENGTH
     decoder_size = MAX_SENTENCE_LENGTH
     encoder_inputs, decoder_inputs = [], []
+    batch_lengths = []
 
     for encoder_input, decoder_input in batch:
         if len(encoder_input) > MAX_SENTENCE_LENGTH: encoder_input = encoder_input[:MAX_SENTENCE_LENGTH]
         if len(decoder_input) > MAX_SENTENCE_LENGTH-2: decoder_input = decoder_input[:MAX_SENTENCE_LENGTH-2]
+
+        batch_lengths.append(len(encoder_input))
 
         # Encoder inputs are padded and then reversed.
         encoder_pad = [PAD_ID] * (encoder_size - len(encoder_input))
@@ -171,7 +174,7 @@ def get_batch(batch):
           batch_weight[batch_idx] = 0.0
       batch_weights.append(batch_weight)
 
-    return batch_encoder_inputs, batch_decoder_inputs, batch_weights
+    return batch_encoder_inputs, batch_decoder_inputs, batch_weights, batch_lengths
 
 def get_multiple_batches(data, n, batch_size):
     sample = random.sample(data, n*batch_size)
@@ -220,10 +223,10 @@ def train(train_data, valid_data):
             # Get a batch and make a step.
             start_time = time.time()
 
-            for encoder_inputs, decoder_inputs, target_weights in get_multiple_batches(train_data, 20, BATCH_SIZE):
+            for encoder_inputs, decoder_inputs, target_weights, batch_lengths in get_multiple_batches(train_data, 20, BATCH_SIZE):
 
                 _, step_loss, _ = model.step(session, encoder_inputs, decoder_inputs,
-                                           target_weights, 0, False)
+                                           target_weights, batch_lengths, 0, False)
                 step_time += (time.time() - start_time) / STEPS_PER_CHECKPOINT
                 loss += step_loss / STEPS_PER_CHECKPOINT
                 current_step += 1
@@ -328,7 +331,7 @@ def generate_bleu():
         ref = open('references', 'w')
         hyp = open('hypotheses', 'w')
         ger = open('german', 'w')
-        
+
         for i in range(NUM):
             ref.write(sentences_en[i] + "\n")
             hyp.write(translations[i] + "\n")

@@ -129,11 +129,14 @@ class Seq2SeqModel(object):
     if num_layers > 1:
       cell = tf.nn.rnn_cell.MultiRNNCell([single_cell() for _ in range(num_layers)])
 
+    self.sequence_length = tf.placeholder(tf.int32, shape=[self.batch_size], name="sequence_length")
+
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
       return seq2seq.embedding_attention_seq2seq(
           encoder_inputs,
           decoder_inputs,
+          self.sequence_length,
           cell,
           num_encoder_symbols=source_vocab_size,
           num_decoder_symbols=target_vocab_size,
@@ -195,7 +198,7 @@ class Seq2SeqModel(object):
 
     self.saver = tf.train.Saver(tf.global_variables())
 
-  def step(self, session, encoder_inputs, decoder_inputs, target_weights,
+  def step(self, session, encoder_inputs, decoder_inputs, target_weights, batch_lengths,
            bucket_id, forward_only):
     """Run a step of the model feeding the given inputs.
 
@@ -239,6 +242,8 @@ class Seq2SeqModel(object):
     # Since our targets are decoder inputs shifted by one, we need one more.
     last_target = self.decoder_inputs[decoder_size].name
     input_feed[last_target] = np.zeros([self.batch_size], dtype=np.int32)
+
+    input_feed[self.sequence_length] = batch_lengths
 
     # Output feed: depends on whether we do a backward step or not.
     if not forward_only:
