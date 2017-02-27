@@ -813,16 +813,19 @@ def embedding_attention_seq2seq(encoder_inputs,
     encoder_cell = rnn_cell.EmbeddingWrapper(
         cell, embedding_classes=num_encoder_symbols,
         embedding_size=embedding_size)
-    encoder_outputs, encoder_state = rnn.rnn(
-        encoder_cell, encoder_inputs, dtype=dtype)
+    # encoder_outputs, encoder_state = rnn.rnn(
+    #     encoder_cell, encoder_inputs, dtype=dtype)
+
+    encoder_outputs, encoder_state, encoder_state_back = rnn.bidirectional_rnn(
+        encoder_cell, encoder_cell, encoder_inputs, sequence_length=None, dtype=dtype)
 
     # First calculate a concatenation of encoder outputs to put attention on.
-    top_states = [array_ops.reshape(e, [-1, 1, cell.output_size])
+    output_size = 2 * encoder_cell.output_size
+    top_states = [array_ops.reshape(e, [-1, 1, output_size])
                   for e in encoder_outputs]
     attention_states = array_ops.concat(1, top_states)
 
     # Decoder.
-    output_size = None
     if output_projection is None:
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
       output_size = num_decoder_symbols
