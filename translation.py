@@ -281,8 +281,10 @@ def translate(model, sess, vocab_german, vocab_english, sentences):
 
     return translations
 
+CPU_CONFIG = tf.ConfigProto(device_count = {'GPU': 0})
+
 def decode():
-    with tf.Session() as sess:
+    with tf.Session(config=CPU_CONFIG) as sess:
         # Create model and load parameters.
         model = create_model(sess, True)
 
@@ -298,7 +300,7 @@ def decode():
 
         sentence = ask()
         while sentence != "":
-            translation = translate(model, sess, vocab_german, vocab_english, [sentence, sentence])[0]
+            translation = translate(model, sess, vocab_german, vocab_english, [sentence])[0]
 
             print(translation)
 
@@ -309,7 +311,7 @@ def generate_bleu():
     with open(TEST_PATH) as f:
         data = random.sample(f.read().splitlines(), NUM)
 
-    with tf.Session() as sess:
+    with tf.Session(config=CPU_CONFIG) as sess:
         model = create_model(sess, True)
         vocab_german = Vocab.load('german')
         vocab_english = Vocab.load('english')
@@ -321,17 +323,20 @@ def generate_bleu():
             sentences_de.append(data[i][0])
             sentences_en.append(data[i][1])
 
-        translations = translate(model, sess, vocab_german, vocab_english, sentences_en)
+        translations = translate(model, sess, vocab_german, vocab_english, sentences_de)
 
         ref = open('references', 'w')
         hyp = open('hypotheses', 'w')
+        ger = open('german', 'w')
         
         for i in range(NUM):
             ref.write(sentences_en[i] + "\n")
             hyp.write(translations[i] + "\n")
+            ger.write(sentences_de[i] + "\n")
 
         ref.close()
         hyp.close()
+        ger.close()
         res = subprocess.getoutput('./multi-bleu.perl references < hypotheses')
         print(res)
 
