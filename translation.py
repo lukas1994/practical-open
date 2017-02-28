@@ -174,6 +174,8 @@ def get_batch(batch):
           batch_weight[batch_idx] = 0.0
       batch_weights.append(batch_weight)
 
+    # batch_lengths += [0] * (BATCH_SIZE - len(batch_lengths))
+
     return batch_encoder_inputs, batch_decoder_inputs, batch_weights, batch_lengths
 
 def get_multiple_batches(data, n, batch_size):
@@ -247,9 +249,9 @@ def train(train_data, valid_data):
                     model.saver.save(session, checkpoint_path, global_step=model.global_step)
                     step_time, loss = 0.0, 0.0
                     # Run evals on validation set and print their perplexity (one batch).
-                    encoder_inputs, decoder_inputs, target_weights = get_multiple_batches(valid_data, 1, BATCH_SIZE)[0]
+                    encoder_inputs, decoder_inputs, target_weights, batch_lengths = get_multiple_batches(valid_data, 1, BATCH_SIZE)[0]
                     _, eval_loss, _ = model.step(session, encoder_inputs, decoder_inputs,
-                                               target_weights, 0, True)
+                                               target_weights, batch_lengths, 0, True)
                     eval_ppx = math.exp(float(eval_loss)) if eval_loss < 300 else float("inf")
                     print("  eval: perplexity %.2f" % eval_ppx)
                     sys.stdout.flush()
@@ -261,12 +263,12 @@ def translate(model, sess, vocab_german, vocab_english, sentences):
         data.append((token_ids, []))
 
     # Get a 1-element batch to feed the sentence to the model.
-    encoder_inputs, decoder_inputs, target_weights = get_batch(data)
+    encoder_inputs, decoder_inputs, target_weights, batch_lengths = get_batch(data)
 
     # Get output logits for the sentence.
     model.batch_size = len(sentences)
     _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                             target_weights, 0, True)
+                                             target_weights, batch_lengths, 0, True)
 
     # This is a greedy decoder - outputs are just argmaxes of output_logits.
     outputs = [np.argmax(logit, axis=1) for logit in output_logits]
@@ -310,7 +312,7 @@ def decode():
             sentence = ask()
 
 def generate_bleu():
-    NUM = 20
+    NUM = BATCH_SIZE
     with open(TEST_PATH) as f:
         data = random.sample(f.read().splitlines(), NUM)
 
