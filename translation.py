@@ -36,7 +36,7 @@ LEARNING_RATE = 0.5
 LEARNING_RATE_DECAY_FACTOR = 0.99
 MAX_SENTENCE_LENGTH = 40
 MAX_VOCAB_SIZE = 7000
-STEPS_PER_CHECKPOINT = 5000
+STEPS_PER_CHECKPOINT = 500
 
 def tokenize(line):
     [german, english] = line.split('|||')
@@ -305,7 +305,7 @@ def decode():
 
         sentence = ask()
         while sentence != "":
-            translation = translate(model, sess, vocab_german, vocab_english, [sentence])[0]
+            translation = translate(model, sess, vocab_german, vocab_english, [sentence]*BATCH_SIZE)[0]
 
             print(translation)
 
