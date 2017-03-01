@@ -345,6 +345,18 @@ def generate_bleu():
         res = subprocess.getoutput('./multi-bleu.perl references < hypotheses')
         print(res)
 
+def cosine():
+    with tf.Session(config=CPU_CONFIG) as sess:
+        model = create_model(sess, True)
+        vocab_german = Vocab.load('german')
+        vocab_english = Vocab.load('english')
+
+        with tf.variable_scope("EmbeddingWrapper"):
+            embedding = tf.get_variable(
+                "embedding", [MAX_VOCAB_SIZE, LAYER_SIZE])
+            embedded = tf.nn.embedding_lookup(embedding, 2)
+            print(sess.run(embedded))
+
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         train_data, test_data, valid_data = get_data()
@@ -354,5 +366,7 @@ if __name__ == '__main__':
         generate_bleu()
     elif sys.argv[1] == 'decode':
         decode()
+    elif sys.argv[1] == 'cosine':
+        cosine()
     else:
         sys.exit(1)
