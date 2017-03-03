@@ -1,0 +1,29 @@
+Reading model parameters from train/translate.ckpt-4000
+BLEU = 3.31, 28.0/6.3/1.6/0.4 (BP=1.000, ratio=1.229, hyp_len=1409, ref_len=1146)
+
+Reading model parameters from train/translate.ckpt-5000
+BLEU = 6.76, 40.3/13.0/4.2/1.5 (BP=0.899, ratio=0.904, hyp_len=943, ref_len=1043)
+
+Reading model parameters from train/translate.ckpt-6000
+BLEU = 8.75, 36.9/12.6/5.1/2.4 (BP=1.000, ratio=1.084, hyp_len=1255, ref_len=1158)
+
+Reading model parameters from train/translate.ckpt-7000
+BLEU = 9.18, 37.7/13.2/5.5/2.6 (BP=1.000, ratio=1.134, hyp_len=1319, ref_len=1163)
+
+Reading model parameters from train/translate.ckpt-8000
+BLEU = 11.20, 47.0/18.0/7.6/3.1 (BP=0.940, ratio=0.942, hyp_len=1089, ref_len=1156)
+
+Reading model parameters from train/translate.ckpt-9000
+BLEU = 11.56, 47.7/18.1/9.5/4.8 (BP=0.820, ratio=0.835, hyp_len=1045, ref_len=1252)
+
+Reading model parameters from train/translate.ckpt-10500
+BLEU = 11.81, 44.5/17.9/7.8/3.1 (BP=1.000, ratio=1.025, hyp_len=1116, ref_len=1089)
+
+Reading model parameters from train/translate.ckpt-17500
+BLEU = 14.62, 49.9/20.6/10.3/5.7 (BP=0.933, ratio=0.935, hyp_len=1056, ref_len=1129)
+
+Reading model parameters from train/translate.ckpt-19000
+BLEU = 16.55, 48.7/19.6/8.4/4.1 (BP=0.969, ratio=0.969, hyp_len=1127, ref_len=1163)
+
+Reading model parameters from train/translate.ckpt-19500
+BLEU = 12.85, 47.5/19.3/9.1/4.8 (BP=0.910, ratio=0.914, hyp_len=1132, ref_len=1239)
